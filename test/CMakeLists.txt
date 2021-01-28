@@ -8,10 +8,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 add_executable(ds-algo-test
-    test-main.cpp
+    tunable_map.cpp
 )
 target_link_libraries(ds-algo-test
     gtest_main
+    ds-algo
 )
 
 add_test(test COMMAND ds-algo-test)
