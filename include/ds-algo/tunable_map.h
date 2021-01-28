@@ -5,6 +5,7 @@
 
 #include <array>
 #include <concepts>
+#include <functional>
 #include <utility>
 
 namespace dsalgo {
@@ -27,7 +28,7 @@ concept Layer = requires (LayerT &&l, InKeyT &&k) {
 
 namespace impl {
 
-template<typename K, typename V, auto BRANCHING_FACTOR>
+template<typename V, auto BRANCHING_FACTOR>
 class array_layer
 {
 public:
@@ -38,7 +39,7 @@ public:
         key_type operator()(IncomingKeyT &&incoming_key) {
             return std::hash<IncomingKeyT>{}(incoming_key) % BRANCHING_FACTOR;
         }
-    }
+    };
 
     value_type at(key_type &&key) {
         return storage.at(key);
@@ -48,27 +49,27 @@ private:
     std::array<value_type, BRANCHING_FACTOR> storage;
 };
 
-template<typename K, typename V, template<typename K_, typename V_> typename... InnerLayerTs>
+template<typename K, typename V, template<typename V_> typename... InnerLayerTs>
 class layer_folder;
 
-template<typename K, typename V, template<typename K_, typename V_> typename LastLayerT>
-    requires Layer<LastLayerT<K, V>>
+template<typename K, typename V, template<typename V_> typename LastLayerT>
+    requires Layer<LastLayerT<V>, K>
 class layer_folder<K, V, LastLayerT>
 {
-    using type = LastLayerT<K, V>;
-    LastLayerT<K, V> storage;
+    using type = LastLayerT<V>;
+    LastLayerT<V> storage;
 };
 
-template<typename K, typename V, template<typename K_, typename V_> typename TopLayerT, template<typename K_, typename V_> typename NextLayerT, template<typename K_, typename V_> typename... InnerLayerTs>
-    requires Layer<typename layer_folder<K, V, NextLayerT, InnerLayerTs...>::type>
+template<typename K, typename V, template<typename V_> typename TopLayerT, template<typename V_> typename NextLayerT, template<typename V_> typename... InnerLayerTs>
+    requires Layer<typename layer_folder<K, V, NextLayerT, InnerLayerTs...>::type, K>
 class layer_folder<K, V, TopLayerT, NextLayerT, InnerLayerTs...>
 {
     using inner_type = typename layer_folder<K, V, NextLayerT, InnerLayerTs...>::type;
-    using type = TopLayerT<K, inner_type>;
+    using type = TopLayerT<inner_type>;
 };
 
 
-template<typename K, typename V, template<typename K_, typename V_> typename... InnerLayerTs>
+template<typename K, typename V, template<typename V_> typename... InnerLayerTs>
 class tunable_map
 {
 private: 
@@ -77,11 +78,11 @@ private:
 
 } // namespace impl
 
-template<std::unsigned_integral K, typename V>
-using array_layer = impl::array_layer<K, V, 100u>;
+template<typename V>
+using array_layer = impl::array_layer<V, 100u>;
 
-template<typename K, typename V, template<typename K_, typename V_> typename... InnerLayerTs>
-    requires (Layer<InnerLayerTs<K, V>> && ...) && (sizeof...(InnerLayerTs) > 0)
+template<typename K, typename V, template<typename V_> typename... InnerLayerTs>
+    requires (sizeof...(InnerLayerTs) > 0)
 class tunable_map : private impl::tunable_map<K, V, InnerLayerTs...>
 {
 
